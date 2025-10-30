@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interpol ou FIDE ?</title>
+
+  <!-- Confetti lib -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    /* ===== Base / layout ===== */
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+
+    body {
+      font-family: "Poppins", Arial, sans-serif;
+      background: linear-gradient(135deg, #0072ff, #00c6ff);
+      color: #333;
+      text-align: center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-y: auto;
+    }
+
+    /* Bloque le scroll quand on est sur le menu */
+    body.noscroll {
+      overflow: hidden;
+    }
+
+    h1 {
+      margin-top: 40px;
+      color: white;
+      text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    /* ===== Card jeu ===== */
+    .card {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      padding: 30px;
+      margin: 24px auto;
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: transform 0.3s ease;
+    }
+    .card:hover {
+      transform: scale(1.02);
+    }
+
+    #photo {
+      width: 220px;
+      height: auto;
+      border-radius: 10px;
+      margin-bottom: 18px;
+    }
+
+    .buttons {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 8px;
+    }
+
+    /* ===== Boutons génériques ===== */
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.18s ease, transform 0.12s ease;
+    }
+    .btn:hover {
+      transform: translateY(-3px);
+    }
+
+    .btn.interpol {
+      background: #ff5252;
+      color: #fff;
+    }
+    .btn.interpol:hover {
+      background: #ff1744;
+    }
+
+    .btn.fide {
+      background: #2962ff;
+      color: #fff;
+    }
+    .btn.fide:hover {
+      background: #0039cb;
+    }
+
+    .btn.next {
+      margin-top: 18px;
+      background-color: #00c853;
+      color: white;
+      border-radius: 12px;
+      padding: 10px 18px;
+    }
+    .btn.next:hover {
+      background-color: #00b34a;
+    }
+
+    /* ===== Score / résultat ===== */
+    #scoreboard {
+      margin-top: 14px;
+      font-size: 18px;
+      color: white;
+      font-weight: 500;
+      background: rgba(255,255,255,0.15);
+      padding: 8px 18px;
+      border-radius: 12px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+    }
+
+    #result {
+      margin-top: 12px;
+      font-weight: bold;
+    }
+    #result a {
+      color: #0072ff;
+      text-decoration: none;
+    }
+    #result a:hover {
+      text-decoration: underline;
+    }
+
+    /* ===== Menu principal ===== */
+    #menu {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .menu-box {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 360px;
+      gap: 18px;
+      margin-top: 30px;
+    }
+
+    .menu-btn {
+      background: rgba(255,255,255,0.96);
+      color: #0072ff;
+      border: none;
+      padding: 18px 0;
+      border-radius: 18px;
+      font-size: 20px;
+      cursor: pointer;
+      font-weight: 800;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+      transition: transform .15s ease, box-shadow .15s;
+    }
+    .menu-btn:hover {
+      transform: translateY(-6px) scale(1.02);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.22);
+    }
+
+    /* ===== Popups (Règles / Crédits) ===== */
+    .popup {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none; /* visible via JS */
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      z-index: 1000;
+    }
+    .popup-content {
+      background: white;
+      padding: 26px;
+      border-radius: 16px;
+      text-align: center;
+      width: 92%;
+      max-width: 420px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+    }
+
+    /* ===== Bouton retour (fixé fenêtre) ===== */
+    #game {
+      position: relative;
+    } /* référence visuelle (inutile si bouton fixed) */
+    .btn.back {
+      position: fixed; /* fixe par rapport à la fenêtre */
+      top: 12px;
+      left: 12px;
+      background-color: rgba(255, 255, 255, 0.94);
+      color: #0072ff;
+      font-size: 14px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+      z-index: 9999; /* au-dessus de tout */
+      transition: transform .12s;
+    }
+    .btn.back:hover {
+      transform: translateY(-2px);
+    }
+
+    /* ===== End screen ===== */
+    #end-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(6px);
+      background: rgba(0,0,0,0.2);
+    }
+
+    .end-card {
+      background: white;
+      padding: 40px 50px;
+      border-radius: 18px;
+      text-align: center;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.18);
+      animation: pop .4s ease;
+    }
+
+    .medal {
+      font-size: 52px;
+      margin-bottom: 10px;
+    }
+
+    .end-card h1 {
+      margin: 0;
+      font-size: 32px;
+      font-weight: 800;
+      color: #0072ff;
+    }
+
+    .final-score {
+      font-size: 48px;
+      font-weight: 900;
+      margin: 20px 0 5px;
+      color: #111;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: #666;
+      margin-bottom: 28px;
+    }
+
+    @keyframes pop {
+      0% { transform: scale(.7); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .percent {
+      font-size: 26px;
+      font-weight: 600;
+      margin-top: -8px;
+      margin-bottom: 20px;
+      color: #0072ff;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 420px) {
+      .card { width: 92%; padding: 20px; }
+      #photo { width: 90%; }
+      .menu-btn { font-size: 18px; padding: 14px 0; }
+      .menu-box { gap: 12px; }
+      .buttons { flex-direction: column; gap: 12px; }
+    }
+  </style>
+</head>
+
+<body class="noscroll">
+  <!-- MENU PRINCIPAL -->
+  <main id="menu" aria-label="Menu principal">
+    <h1>Interpol ou FIDE ?</h1>
+
+    <div class="menu-box">
+      <button class="menu-btn" onclick="playClick(); startGame()">🎮 Jouer</button>
+      <button class="menu-btn" onclick="playClick(); showRules()">📖 Règles</button>
+      <button class="menu-btn" onclick="playClick(); showCredits()">👤 Crédits</button>
+    </div>
+  </main>
+
+  <!-- POPUPS -->
+  <div id="popup" class="popup" role="dialog" aria-hidden="true">
+    <div class="popup-content">
+      <h2>📖 Règles du jeu</h2>
+      <p>
+        Regarde la photo et devine : est-ce un joueur titré de la FIDE ou une personne recherchée par Interpol ?
+        <br>Il y a 60 photos au total, bon courage !
+      </p>
+      <div style="margin-top:14px">
+        <button class="btn next" onclick="playClick(); closePopup()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="credits" class="popup" role="dialog" aria-hidden="true">
+    <div class="popup-content">
+      <h2>👤 Crédits</h2>
+      <p>Jeu créé par BITALIQUE.</p>
+      <p>
+        Disclaimer : Je ne détiens aucun droit sur les images utilisées dans ce projet. Elles proviennent de sources publiques
+        et sont affichées uniquement à des fins non commerciales et éducatives. Si vous êtes titulaire des droits d'une image
+        et souhaitez qu’elle soit retirée, vous pouvez me contacter à : contact.interpoloufide@gmail.com.
+      </p>
+      <div style="margin-top:14px">
+        <button class="btn next" onclick="playClick(); closeCredits()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ZONE JEU (masquée au départ) -->
+  <section id="game" style="display:none; opacity:0; transition: opacity .35s;">
+    <!-- Bouton retour — fixé en haut à gauche de la fenêtre -->
+    <button class="btn back" onclick="playClick(); goMenu()" aria-label="Retour au menu">⬅️ Menu</button>
+
+    <h1>Interpol ou FIDE ?</h1>
+    <div id="scoreboard">Score : 0 / 0</div>
+
+    <div class="card" role="region" aria-label="Carte du jeu">
+      <img id="photo" src="" alt="Photo mystère — impossible de charger" />
+      <div class="buttons" role="group" aria-label="Choix">
+        <button id="btnINTERPOL" class="btn interpol" onclick="playClick(); guess('interpol')">Interpol</button>
+        <button id="btnFIDE" class="btn fide" onclick="playClick(); guess('fide')">FIDE</button>
+      </div>
+
+      <div id="result" aria-live="polite"></div>
+      <button id="nextBtn" class="btn next" onclick="playClick(); nextImage()">Suivant</button>
+    </div>
+  </section>
+
+  <!-- ===== Scripts ===== -->
+  <script>
+    /* -------------------------
+       Sons (prévoyez ces fichiers)
+       - sound/click.mp3
+       - sound/Correct_sound.mp3
+       - sound/Incorrect_sound.mp3
+       ------------------------- */
+    const clickSound   = new Audio("sound/click.mp3");
+    const correctSound = new Audio("sound/Correct_sound.mp3");
+    const wrongSound   = new Audio("sound/Incorrect_sound.mp3");
+
+    function playClick() {
+      clickSound.currentTime = 0;
+      clickSound.play().catch(()=>{ /* autoplay blocked — ok */ });
+    }
+
+    function playCorrect() {
+      correctSound.currentTime = 0;
+      correctSound.play().catch(()=>{ /* autoplay blocked — ok */ });
+    }
+
+    function playWrong() {
+      wrongSound.currentTime = 0;
+      wrongSound.play().catch(()=>{ /* autoplay blocked — ok */ });
+    }
+
+    /* ===== Popups & navigation ===== */
+    function showRules() {
+      document.getElementById("popup").style.display = "flex";
+      document.getElementById("popup").setAttribute("aria-hidden", "false");
+    }
+
+    function closePopup() {
+      document.getElementById("popup").style.display = "none";
+      document.getElementById("popup").setAttribute("aria-hidden", "true");
+    }
+
+    function showCredits() {
+      document.getElementById("credits").style.display = "flex";
+      document.getElementById("credits").setAttribute("aria-hidden", "false");
+    }
+
+    function closeCredits() {
+      document.getElementById("credits").style.display = "none";
+      document.getElementById("credits").setAttribute("aria-hidden", "true");
+    }
+
+    /* ===== Menu / démarrage ===== */
+    function startGame() {
+      document.body.classList.remove("noscroll"); // autorise scroll en jeu
+      document.getElementById("menu").style.display = "none";
+
+      const game = document.getElementById("game");
+      game.style.display = "block";
+      setTimeout(()=> game.style.opacity = "1", 50);
+
+      loadSuspect();
+    }
+
+    function goMenu() {
+      const game = document.getElementById("game");
+      const menu = document.getElementById("menu");
+
+      // cache le jeu, remets le menu
+      game.style.opacity = "0";
+      setTimeout(()=> {
+        game.style.display = "none";
+        menu.style.display = "flex";
+        document.body.classList.add("noscroll");
+      }, 200);
+    }
+
+    /* ===== Confetti ===== */
+    function launchConfetti() {
+      try {
+        confetti({ particleCount: 120, spread: 70, origin: { y: 0.7 } });
+      } catch (e) {
+        // lib non disponible
+      }
+    }
+
+    function endGame() {
+      const percent = total ? Math.round((score / total) * 100) : 0;
+
+      document.getElementById("game").innerHTML = `
+        <div id="end-screen">
+          <div class="end-card">
+            <div class="medal">🏆</div>
+            <h1>Bravo !</h1>
+
+            <p class="final-score">${score} / ${total}</p>
+            <p class="percent">${percent}% de réussite</p>
+
+            <p class="subtitle">Tu as terminé tous les profils 👏</p>
+            <div style="display:flex; gap:12px; justify-content:center; margin-top:8px;">
+              <button class="btn" onclick="playClick(); location.reload();">Rejouer</button>
+              <button class="btn" onclick="playClick(); goMenu()">Retour au menu</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /* ===== Données & logique du jeu ===== */
+    const suspects = [
+      { img: "images_FIDE/Firouzja_Alireza.png", source: "fide", name: "Firouzja, Alireza", url: "https://ratings.fide.com/profile/12573981" },
+      { img: "images_interpol/GHOSN_BICHARA_CARLOS.jpg", source: "interpol", name: "GHOSN BICHARA, CARLOS", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2025-1473" },
+      { img: "images_interpol/KUMAR_ANIL.jpg", source: "interpol", name: "KUMAR, ANIL", url: "https://www.interpol.int/How-we-work/Notices/Red-Notices/View-Red-Notices#2025-51262" },
+      { img: "images_FIDE/Shaker_Musab.png", source: "fide", name: "Shaker, Musab", url: "https://ratings.fide.com/profile/11201789" },
+      { img: "images_interpol/SALIF_BOUHARI.jpg", source: "interpol", name: "SALIF, BOUHARI", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2015-13681" },
+      { img: "images_FIDE/Cerrato_Nadal_Juan_P.jpg", source: "fide", name: "Cerrato Nadal, Juan P.", url: "https://ratings.fide.com/profile/2265907" },
+      { img: "images_interpol/TERAN_HORACIO_CARLOS.jpg", source: "interpol", name: "TERAN, HORACIO CARLOS", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2014-70800" },
+      { img: "images_FIDE/Erwich_Marc.png", source: "fide", name: "Erwich, Marc", url: "https://ratings.fide.com/profile/1007130" },
+      { img: "images_FIDE/Liu_Guanchu.jpg", source: "fide", name: "Liu, Guanchu", url: "https://ratings.fide.com/profile/8603901" },
+      { img: "images_interpol/SBINSKI_PATRYK_DARIUSZ.jpg", source: "interpol", name: "SIBINSKI, PATRYK DARIUSZ", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2024-14818" },
+      { img: "images_interpol/HERNANDEZ_SOLARTE_SEUXIS_PAUCIAS.jpg", source: "interpol", name: "HERNANDEZ SOLARTE, SEUXIS PAUCIAS", url: "https://www.interpol.int/How-we-work/Notices/Red-Notices/View-Red-Notices#2019-71319" },
+      { img: "images_FIDE/Wong_Ho_Cheung.jpg", source: "fide", name: "Wong, Ho Cheung", url: "https://ratings.fide.com/profile/6001394" },
+      { img: "images_FIDE/Gonzalez_Renier.jpg", source: "fide", name: "Gonzalez, Renier", url: "https://ratings.fide.com/profile/3501841" },
+      { img: "images_autre_interpol/Jonathon_Kelly.jpg", source: "interpol", name: "Jonathon Kelly", url: "https://www.nationalcrimeagency.gov.uk/most-wanted/jonathon-kelly" },
+      { img: "images_FIDE/Guliev_Logman.jpg", source: "fide", name: "Guliev, Logman", url: "https://ratings.fide.com/profile/13400061" },
+      { img: "images_europol/VACLAVEK_Vladimir.png", source: "interpol", name: "VACLAVEK, Vladimir", url: "https://eumostwanted.eu/#/vaclavek-vladimir" },
+      { img: "images_FIDE/Omorere_Benjamin_Aruoture.jpg", source: "fide", name: "Omorere, Benjamin Aruoture", url: "https://ratings.fide.com/profile/8500487" },
+      { img: "images_autre_interpol/JOHN_RUFFO.jpg", source: "interpol", name: "JOHN RUFFO", url: "https://www.usmarshals.gov/what-we-do/fugitive-apprehension/15-most-wanted-fugitive/john-ruffo" },
+      { img: "images_interpol/JONES_SALLY-ANNE_FRANCES.jpg", source: "interpol", name: "JONES, SALLY-ANNE FRANCES", url: "https://www.interpol.int/fr/Notre-action/Notices/Voir-les-notices-speciales-INTERPOL-CSNU-portant-sur-des-personnes#2015-64597" },
+      { img: "images_interpol/ADAM_MAHAMAT_NOURADINE.jpg", source: "interpol", name: "ADAM, MAHAMAT NOURADINE", url: "https://www.interpol.int/How-we-work/Notices/Red-Notices/View-Red-Notices#2020-5534" },
+      { img: "images_interpol/KESEROVIC_ALIJA.jpg", source: "interpol", name: "KESEROVIC, ALIJA", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2015-45883" },
+      { img: "images_FIDE/Ramos_Espinoza_Efren_Andres.jpg", source: "fide", name: "Ramos Espinoza, Efren Andres", url: "https://ratings.fide.com/profile/6100538" },
+      { img: "images_interpol/KHOKON_ZAHID_HOSSAIN.jpg", source: "interpol", name: "KHOKON, ZAHID HOSSAIN", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2015-60780" },
+      { img: "images_FIDE/Aziz_Husain.jpg", source: "fide", name: "Aziz, Husain", url: "https://ratings.fide.com/profile/12100293" },
+      { img: "images_FIDE/Kozlov_Gennady.jpg", source: "fide", name: "Kozlov, Gennady", url: "https://ratings.fide.com/profile/4191668" },
+      { img: "images_europol/DRMIĆ_Tomislav.JPG", source: "interpol", name: "DRMIĆ, Tomislav", url: "https://eumostwanted.eu/#/drmic-tomislav" },
+      { img: "images_interpol/MANSUROV_SULEIMAN.jpg", source: "interpol", name: "MANSUROV, SULEIMAN", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2014-41255" },
+      { img: "images_FIDE/Cioara_Andrei-Nestor.jpg", source: "fide", name: "Cioara, Andrei-Nestor", url: "https://ratings.fide.com/profile/1203509" },
+      { img: "images_interpol/BOUGUETTAIA_ABDELKADER.jpg", source: "interpol", name: "BOUGUETTAIA, ABDELKADER", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2022-9907" },
+      { img: "images_FIDE/Maduro_Sherman.jpg", source: "fide", name: "Maduro, Sherman", url: "https://ratings.fide.com/profile/7500122" },
+      { img: "images_europol/SMREKAR_Melisa.jpg", source: "interpol", name: "SMREKAR , Melisa", url: "https://eumostwanted.eu/#/smrekar-melisa" },
+      { img: "images_FIDE/Peek_Maurice.jpg", source: "fide", name: "Peek, Maurice", url: "https://ratings.fide.com/profile/1004239" },
+      { img: "images_FIDE/Eidelson_Rakhil.jpg", source: "fide", name: "Eidelson, Rakhil", url: "https://ratings.fide.com/profile/13500210" },
+      { img: "images_interpol/FALLAHIJAN_ALI.jpg", source: "interpol", name: "FALLAHIJAN, ALI", url: "https://www.interpol.int/How-we-work/Notices/Red-Notices/View-Red-Notices#2006-34754" },
+      { img: "images_FIDE/Alothman_Ali_Layth_Ahmed.jpg", source: "fide", name: "Alothman ,Ali Layth Ahmed", url: "https://ratings.fide.com/profile/4801920" },
+      { img: "images_FIDE/Iljushin_Alexei.jpg", source: "fide", name: "Iljushin, Alexei", url: "https://ratings.fide.com/profile/4122178" },
+      { img: "images_FIDE/Paramos_Dominguez_Roberto.jpg", source: "fide", name: "Paramos Dominguez, Roberto", url: "https://ratings.fide.com/profile/2202565" },
+      { img: "images_europol/SCHUELER_Richard_James.jpg", source: "interpol", name: "SCHUELER, Richard James", url: "https://eumostwanted.eu/#/schueler-richard-james" },
+      { img: "images_interpol/RAUF_ABDUL.jpg", source: "interpol", name: "RAUF, ABDUL", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2000-28396" },
+      { img: "images_interpol/YAKUNINA_KRISTINA.jpg", source: "interpol", name: "YAKUNINA, KRISTINA", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2012-306454" },
+      { img: "images_FIDE/Gallo_Ponce_Elbert.jpg", source: "fide", name: "Gallo Ponce, Elbert", url: "https://ratings.fide.com/profile/3802906" },
+      { img: "images_autre_interpol/Mehmet_Salih.jpg", source: "interpol", name: "Mehmet Salih", url: "https://www.nationalcrimeagency.gov.uk/most-wanted/mehmet-salih" },
+      { img: "images_FIDE/Leenhouts_Koen.jpg", source: "fide", name: "Leenhouts, Koen", url: "https://ratings.fide.com/profile/1008439" },
+      { img: "images_autre_interpol/Evgenii_Gennadievich_Matrosov.webp", source: "interpol", name: "Evgenii Gennadievich Matrosov", url: "https://www.secretservice.gov/investigations/mostwanted/matrosov" },
+      { img: "images_interpol/SOLIDE_MANLEY.jpg", source: "interpol", name: "SOLIDE, MANLEY", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2024-60396" },
+      { img: "images_FIDE/Gonzalez_Menedez_Ivan.jpg", source: "fide", name: "Gonzalez Menendez, Ivan", url: "https://ratings.fide.com/profile/2226316" },
+      { img: "images_FIDE/Abraham_Kalokoh.jpg", source: "fide", name: "Abraham Kalokoh", url: "https://ratings.fide.com/profile/22600264" },
+      { img: "images_europol/RUSIŅŠ_Leons.jpg", source: "interpol", name: "RUSIŅŠ , Leons", url: "https://eumostwanted.eu/#/index.php/rusins-leons" },
+      { img: "images_FIDE/Shyam_Sundar_M.jpg", source: "fide", name: "Shyam, Sundar M.", url: "https://ratings.fide.com/profile/5019141" },
+      { img: "images_interpol/FERREIRA_DA_SILVA_JOHNATTA_WILSON.jpg", source: "interpol", name: "FERREIRA DA SILVA, JOHNATTA WILSON", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2024-6292" },
+      { img: "images_FIDE/Alran-Och_Genden.jpg", source: "fide", name: "Altan-Och, Genden", url: "https://ratings.fide.com/profile/4900278" },
+      { img: "images_europol/MONTASSAR_Ben_Mahfoudh.jpg", source: "interpol", name: "MONTASSAR , Ben Mahfoudh", url: "https://eumostwanted.eu/#/montassar-ben-mahfoudh" },
+      { img: "images_FIDE/Fancsy_Imre.jpg", source: "fide", name: "Fancsy, Imre", url: "https://ratings.fide.com/profile/701327" },
+      { img: "images_interpol/CLAIN_FABIEN.jpg", source: "interpol", name: "CLAIN, FABIEN", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2015-27118" },
+      { img: "images_interpol/GUEVARA_RODRIGUEZ_ANGEL_ANIBAL.jpg", source: "interpol", name: "GUEVARA RODRIGUEZ, ANGEL ANIBAL", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2022-84652" },
+      { img: "images_FIDE/Bargan_Sergiu.jpg", source: "fide", name: "Bargan, Sergiu", url: "https://ratings.fide.com/profile/13900854" },
+      { img: "images_interpol/KAROW_JIMMY_JULIUS.jpg", source: "interpol", name: "KAROW, JIMMY JULIUS", url: "https://www.interpol.int/fr/Notre-action/Notices/Notices-rouges/Voir-les-notices-rouges#2014-31584" },
+      { img: "images_FIDE/Ghosh_Chanchal_Kumer.png", source: "fide", name: "Ghosh, Chanchal Kumer", url: "https://ratings.fide.com/profile/10201858" },
+      { img: "images_FIDE/Bodo_Norbert.jpg", source: "fide", name: "Bodo, Norbert", url: "https://ratings.fide.com/profile/707350" },
+      { img: "images_FIDE/Groszpeter_Attila.jpg", source: "fide", name: "Groszpeter, Attila", url: "https://ratings.fide.com/profile/700053" }
+    ];
+
+    let current = 0;
+    let score = 0;
+    let total = 0;
+    let hasGuessed = false;
+
+    const photo = document.getElementById("photo");
+    const result = document.getElementById("result");
+    const scoreElem = document.getElementById("scoreboard");
+
+    function updateScoreboard() {
+      scoreElem.textContent = `Score : ${score} / ${total}`;
+    }
+
+    function loadSuspect() {
+      // réactive les boutons de réponse et désactive "Suivant"
+      document.getElementById("btnFIDE").disabled = false;
+      document.getElementById("btnINTERPOL").disabled = false;
+      document.getElementById("nextBtn").disabled = true;
+
+      const suspect = suspects[current];
+      photo.src = suspect.img;
+      photo.alt = suspect.name || "Photo mystère";
+      result.innerHTML = "";
+      hasGuessed = false;
+
+      // mettre à jour l'affichage du score (utile au début aussi)
+      updateScoreboard();
+    }
+
+    function guess(choice) {
+      if (hasGuessed) return; // empêche le spam
+      hasGuessed = true;
+
+      const suspect = suspects[current];
+      total++;
+
+      if (choice === suspect.source) {
+        playCorrect();
+        launchConfetti();
+        score++;
+        result.innerHTML = `<strong>✅ Bonne réponse !</strong>`;
+      } else {
+        playWrong();
+        result.innerHTML = `<strong>❌ Mauvaise réponse...</strong>`;
+      }
+
+      // désactive les boutons de réponse et active "Suivant"
+      document.getElementById("btnFIDE").disabled = true;
+      document.getElementById("btnINTERPOL").disabled = true;
+      document.getElementById("nextBtn").disabled = false;
+
+      // Afficher le nom et le lien du profil
+      result.innerHTML += `<br><em>${suspect.name}</em><br><a href="${suspect.url}" target="_blank" rel="noopener">Voir le profil</a>`;
+
+      // Mettre à jour le scoreboard
+      updateScoreboard();
+
+      // Vérifier si on a tout joué (dernier élément)
+      if (current === suspects.length - 1) {
+        setTimeout(endGame, 800); // petite pause pour voir le résultat
+        return;
+      }
+    }
+
+    function nextImage() {
+      // Avance tant qu'on n'est pas sur le dernier suspect.
+      if (current < suspects.length - 1) {
+        current++;
+        loadSuspect();
+      } else {
+        // si on est au dernier (au cas où), terminer le jeu
+        endGame();
+      }
+    }
+
+    // Chargement initial
+    loadSuspect();
+  </script>
+</body>
+</html>
